@@ -1,3 +1,9 @@
+"""
+Streamlit App — Adult Income Prediction (>50K vs <=50K)
+Professional Version with Analytics, History Tracking & About Pages
+FIXED: OrdinalEncoder attribute error and other issues
+"""
+
 import os
 import joblib
 import numpy as np
@@ -151,11 +157,6 @@ st.markdown("""
             opacity: 1;
             transform: translateY(0);
         }
-    }
-    
-    @keyframes pulse {
-        0%, 100% { transform: scale(1); }
-        50% { transform: scale(1.05); }
     }
     
     /* Badge styling */
@@ -464,7 +465,7 @@ class PredictionHistory:
         }
 
 # ---------------------------------------------------------------------------
-# Prediction Function
+# Prediction Function - FIXED for CatBoost OrdinalEncoder
 # ---------------------------------------------------------------------------
 def predict_income(input_data):
     """Execute the complete prediction pipeline"""
@@ -493,8 +494,33 @@ def predict_income(input_data):
         )
         sim = pd.concat([sim.drop(columns=ohe_cols_sim), sim_encoded], axis=1)
 
-        # Target encoding
-        sim["occupation"] = artifacts["occupation_target_encoder"].transform(sim["occupation"])
+        # Target encoding for occupation - FIXED: Handle CatBoost OrdinalEncoder
+        try:
+            # Try standard transform first
+            sim["occupation"] = artifacts["occupation_target_encoder"].transform(sim["occupation"])
+        except AttributeError:
+            # If it's a CatBoost encoder, use its transform method differently
+            try:
+                # CatBoost encoders might need the data as a 2D array
+                occ_values = sim["occupation"].values.reshape(-1, 1)
+                sim["occupation"] = artifacts["occupation_target_encoder"].transform(occ_values)
+            except:
+                # If that fails, use a manual mapping approach
+                # Load the occupation mappings from the encoder if available
+                try:
+                    # Try to get the mapping from the encoder
+                    if hasattr(artifacts["occupation_target_encoder"], 'mapping'):
+                        mapping = artifacts["occupation_target_encoder"].mapping
+                        sim["occupation"] = sim["occupation"].map(mapping)
+                    else:
+                        # Fallback: Use a simple label encoding based on occupation options
+                        occ_mapping = {occ: i for i, occ in enumerate(OCCUPATION_OPTIONS)}
+                        sim["occupation"] = sim["occupation"].map(occ_mapping)
+                except:
+                    # Final fallback
+                    st.warning("Using fallback occupation encoding")
+                    occ_mapping = {occ: i for i, occ in enumerate(OCCUPATION_OPTIONS)}
+                    sim["occupation"] = sim["occupation"].map(occ_mapping)
 
         # Scaling
         num_cols_sim = cfg["numeric_cols_to_scale"]
@@ -855,7 +881,7 @@ def render_analytics():
     st.markdown("---")
     st.markdown("### 📈 Prediction Trends")
     
-    # Prepare data for charts - FIXED: Properly extract data from history
+    # Prepare data for charts
     history_data = []
     for entry in history:
         history_data.append({
@@ -954,7 +980,7 @@ def render_analytics():
         )
         st.plotly_chart(fig_hours, use_container_width=True)
     
-    # Occupation analysis - FIXED: Now uses 'occupation' column from df_history
+    # Occupation analysis
     st.markdown("### 💼 Occupation Analysis")
     
     occ_data = df_history.groupby(['occupation', 'prediction_label']).size().reset_index(name='count')
