@@ -5,6 +5,14 @@ import streamlit as st
 st.set_page_config(page_title="Income Predictor", page_icon="💰")
 st.title("💰 Adult Income Predictor (>50K or <=50K)")
 
+def _fix_target_encoder(enc):
+    """Patch attributes missing from encoders pickled with an older
+    category_encoders version than the one installed here."""
+    oe = getattr(enc, "ordinal_encoder", None)
+    if oe is not None and not hasattr(oe, "index_start"):
+        oe.index_start = 1
+    return enc
+
 # ---------- Load saved artifacts (from the notebook, Section 9-13) ----------
 @st.cache_resource
 def load_artifacts():
@@ -14,7 +22,7 @@ def load_artifacts():
         "country_map": joblib.load("native_country_encoder.pkl"),
         "marital_map": joblib.load("marital_status_encoder.pkl"),
         "ohe": joblib.load("onehot_encoder.pkl"),
-        "target_enc": joblib.load("occupation_target_encoder.pkl"),
+        "target_enc": _fix_target_encoder(joblib.load("occupation_target_encoder.pkl")),
         "scaler": joblib.load("standard_scaler.pkl"),
         "selected_features": joblib.load("selected_features.pkl"),
         "config": joblib.load("feature_columns_config.pkl"),
