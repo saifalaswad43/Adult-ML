@@ -100,7 +100,7 @@ if submitted:
     ohe_df = pd.DataFrame(ohe_out, columns=art["ohe"].get_feature_names_out(ohe_cols), index=d.index)
     d = pd.concat([d.drop(columns=ohe_cols), ohe_df], axis=1)
 
-    d["occupation"] = art["target_enc"].transform(d["occupation"])
+    d["occupation"] = art["target_enc"].transform(d[["occupation"]])["occupation"]
 
     num_cols = cfg["numeric_cols_to_scale"]
     d[num_cols] = art["scaler"].transform(d[num_cols])
