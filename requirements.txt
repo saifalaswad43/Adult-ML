@@ -6,3 +6,6 @@ category_encoders
 catboost
 joblib
 lightgbm
+category_encoders==2.10.0
+xgboost
+ 
